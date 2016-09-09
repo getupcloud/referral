@@ -7,3 +7,4 @@ mongoengine==0.10.6
 pymongo==3.3.0
 Werkzeug==0.11.11
 -e git://github.com:berlotto/flask-api.git#egg=Flask-API
+requests==2.11.1

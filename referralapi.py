@@ -7,14 +7,19 @@ To development run:
     $ flask run
 """
 from utils import *
+import configuration as config
 from flask import request, url_for, abort
-from flask.ext.api import FlaskAPI, status, exceptions
+from flask.ext.api import (
+    FlaskAPI, 
+    status, 
+    exceptions
+)
+import requests
 from mongoengine.errors import ValidationError
 from models import (
     ReferralProgram,User,
     IndicatedEmail,TransactionLog
 )
-import configuration as config
 
 app = FlaskAPI(__name__)
 
@@ -52,9 +57,10 @@ def program(program_id=None):
                 if program:
                     return to_dict(program)
                 else:
-                    return {'ReferralProgram': 'ID not found'}, status.HTTP_404_NOT_FOUND
+                    return ({'error': 'ID not found'}, 
+                        status.HTTP_404_NOT_FOUND)
             except ValidationError as e:
-                return {'ReferralProgram': 'Invalid ID'}, status.HTTP_404_NOT_FOUND
+                return {'error': 'Invalid ID'}, status.HTTP_404_NOT_FOUND
 
 
     if request.method == "DELETE":
@@ -66,10 +72,10 @@ def program(program_id=None):
                 rp.delete()
                 return '', status.HTTP_204_NO_CONTENT
             else:
-                return {'ReferralProgram': 'ID not found'}, status.HTTP_404_NOT_FOUND
+                return {'error': 'ID not found'}, status.HTTP_404_NOT_FOUND
 
         except ValidationError as e:
-            return {'ReferralProgram': 'Invalid ID'}, status.HTTP_404_NOT_FOUND
+            return {'error': 'Invalid ID'}, status.HTTP_404_NOT_FOUND
 
 
     if request.method == "PUT":
@@ -87,10 +93,45 @@ def program(program_id=None):
 
 @app.route("/register", methods=("POST",))
 def register():
-    user_indicator = request.data.get("user_indicator",'')
-    user_indicated = request.data.get("user_indicated",'')
+    user_indicator_hash = request.data.get("user_indicator",'')
+    user_indicated_hash = request.data.get("user_indicated",'')
 
     if not user_indicated or not user_indicator:
-        return {'ReferralProgram': 'Needed user_indicator and user_indicated hashes'}, status.HTTP_412_PRECONDITION_FAILED
+        return ({'error': 'Needed user_indicator and user_indicated hashes'}, 
+            status.HTTP_412_PRECONDITION_FAILED)
 
-    
+    the_indicator = User.object(hash=user_indicator_hash).first()
+
+    if not the_indicator:
+        return {'error': 'User indicator hash not found'}, status.HTTP_404_NOT_FOUND
+
+    #====================================================================
+    # OBS IMPORTANTE: É necessário receber o identificador do programa de 
+    # referral que será adicionado o usuário.
+    #====================================================================
+    referral_program = ReferralProgram.objects().first()
+
+    #Saves the new user indicated
+    new_user = User()
+    new_user.hash = user_indicated_hash
+    new_user.referral_program = referral_program
+    new_user.user_indicator = the_indicator
+    new_user.save()
+
+    #Register the Transaction log
+    log = TransactionLog()
+    log.user_indicated = new_user
+    log.user_indicator = the_indicator
+    log.user_indicated_referral_program = referral_program
+    log.operation = "signup"
+    log.save()
+
+    #Vai chamar o endpoint de criação de crédito para o usuário indicado (/django/billing/credit/users/<userhash_indicado>/?
+    data = {
+    'amount': referral_program.credit_value,
+    'program_name': referral_program.name,
+    'user_indicator_hash': user_indicator_hash
+    }
+    r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_indicated_hash , data)
+
+    return to_dict(new_user), status.HTTP_201_CREATED

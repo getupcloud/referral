@@ -1,5 +1,21 @@
-# referral
-Referral program
+# GetupCloud Referral Program
+
+A new users indication program.
+
+# Development install
+
+The Referral API runs with Flask 0.11+ on Python 3.5+. This uses MongoDB 
+as your database.
+
+The configuration of database connections is in the file `configuration.py`
+
+To create the development environment and run the application use the 
+following commands:
+
+    $ mkvirtualenv referral-api
+    $ pip install -r requirements.txt
+    $ export FLASK_APP=referralapi
+    $ flask run
 
 # API
 
