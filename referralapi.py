@@ -29,9 +29,6 @@ app.config.from_object('configuration')
 def index():
     return {
         'version':config.VERSION,
-        # 'endpoints':[
-        #     request.url + 'program'
-        # ]
         'endpoints': list_routes(app)
     }
 
@@ -120,12 +117,12 @@ def register():
     new_user.save()
 
     #Register the Transaction log
-    log = TransactionLog()
-    log.user_indicated = new_user
-    log.user_indicator = the_indicator
-    log.user_indicated_referral_program = referral_program
-    log.operation = "signup"
-    log.save()
+    log1 = TransactionLog()
+    log1.user_indicated = new_user
+    log1.user_indicator = the_indicator
+    log1.user_indicated_referral_program = referral_program
+    log1.operation = "signup"
+    log1.save()
 
     #Vai chamar o endpoint de criação de crédito para o usuário indicado (/django/billing/credit/users/<userhash_indicado>/?
     data = {
@@ -134,6 +131,22 @@ def register():
     'user_indicator_hash': user_indicator_hash
     }
     r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_indicated_hash , data)
+    
+    #Register the Transaction log
+    log2 = TransactionLog()
+    log2.user_indicated = new_user
+    log2.user_indicated_referral_program = referral_program
+    log2.amount = referral_program.credit_value
+    log2.operation = "signup_credit"
+    log2.save()
+
+    #Register the Transaction log
+    log3 = TransactionLog()
+    log3.user_indicator = the_indicator
+    log3.user_indicated_referral_program = referral_program
+    log3.amount = referral_program.target_value
+    log3.operation = "potencial_credit"
+    log3.save()
 
     return to_dict(new_user), status.HTTP_201_CREATED
 
@@ -163,3 +176,12 @@ def invoice_user(user_hash):
         return {'acquired_credit':referral_program.target_value}
 
     return {'acquired_credit':0}
+
+
+@app.route("/statement/<user_hash>/", methods=("GET",))
+def statement(user_hash):
+    user = User.objects(hash=user_hash).first()
+    user_statement = {
+        'potencial_credit': ''
+        'referral_program': to_dict(user.referral_program)
+    }
