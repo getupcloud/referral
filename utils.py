@@ -1,3 +1,4 @@
+from urllib.parse import unquote
 from mongoengine.fields import ObjectId
 from models import ReferralProgram
 from flask import request, url_for
@@ -22,3 +23,19 @@ def to_list_dict(objects):
     Iterate over list of documents and return a list of dict of these
     """
     return [to_dict(x) for x in objects]
+
+def list_routes(app):
+    output = []
+    for rule in app.url_map.iter_rules():
+
+        options = {}
+        for arg in rule.arguments:
+            options[arg] = "[{0}]".format(arg)
+
+        methods = ','.join(rule.methods)
+        url = url_for(rule.endpoint, **options)
+        if 'static' not in rule.endpoint:
+            line = {"name":rule.endpoint, 'methods':methods, 'url':unquote(url)}
+            output.append(line)
+    
+    return output

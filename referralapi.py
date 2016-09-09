@@ -29,9 +29,10 @@ app.config.from_object('configuration')
 def index():
     return {
         'version':config.VERSION,
-        'endpoints':[
-            request.url + 'program'
-        ]
+        # 'endpoints':[
+        #     request.url + 'program'
+        # ]
+        'endpoints': list_routes(app)
     }
 
 @app.route("/program/", methods=("GET","POST"))
@@ -135,3 +136,30 @@ def register():
     r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_indicated_hash , data)
 
     return to_dict(new_user), status.HTTP_201_CREATED
+
+@app.route("/invoice/user/<user_hash>/", methods=("PUT",))
+def invoice_user(user_hash):
+    total_amount_paid = request.data.get("total_amount_paid",0)
+
+    user = User.objects(hash=user_hash).first()
+    referral_program = user.referral_program
+
+    if total_amount_paid >= referral_program.target_value:
+        log = TransactionLog()
+        log.user_indicated = user
+        log.amount = referral_program.target_value
+        log.user_indicated_referral_program = referral_program
+        log.operation = "acquired_credit"
+        log.save()
+
+        #Chama o endpoint de criação de crédito
+        data = {
+        'amount': referral_program.target_value,
+        'program_name': referral_program.name,
+        'user_indicator_hash': user_hash
+        }
+        r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_hash , data)
+
+        return {'acquired_credit':referral_program.target_value}
+
+    return {'acquired_credit':0}

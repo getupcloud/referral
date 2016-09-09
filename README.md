@@ -78,7 +78,7 @@ Este valor é a soma dos valores de todas as faturas *pagas* pelo cliente.
 Quando o total bater no `valor_target`, o usuario indicador recebe o mesmo `valor_target` em credito.
 
     PUT /invoice/users/<userhash_indicado>/
-        total_amount: sum(invoice[].amount)
+        total_amount_paid: sum(invoice[].amount)
 
 
 O usuario consulta o extrato com as informacoes completas do seu programa
