@@ -1,0 +1,5 @@
+VERSION = 0.1
+
+DATABASE_NAME="getup-referral"
+DATABASE_HOST="localhost"
+DATABASE_PORT=27017
