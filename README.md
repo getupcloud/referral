@@ -2,12 +2,21 @@
 
 A new users indication program.
 
+# Configuration
+
+The configuration of the application is in the file `configuration.py`
+
+Options:
+
+- DATABASE_NAME: Name of mongodb database
+- DATABASE_HOST: Host name or IP address of the mongodb server
+- DATABASE_PORT: Port of the mongodb database listen
+- ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP: Url that the endpoint /signup will invoke
+
 # Development install
 
 The Referral API runs with Flask 0.11+ on Python 3.5+. This uses MongoDB 
 as your database.
-
-The configuration of database connections is in the file `configuration.py`
 
 To create the development environment and run the application use the 
 following commands:
@@ -22,9 +31,31 @@ following commands:
 Criar programa de referral. Inicialmente teremos apenas um (default) que vamos criar "na mao"
 
     POST /program/
-        nome: nome do programa
-        valor_credito: credito que o indicado recebe no ato do signup
-        valor_target: credito que o indicador recebe quando o indicado alcançar este valor_target
+        params:
+            - name: name of the new referral program
+            - credit_value: Amount value that tue indicated user receives at signup 
+            - target_value: Amount value that the indicator user receives when user_indicated reaches this value.
+        return: The data of the new record created
+
+    GET /program/
+        params : - 
+        return: All referral programs on the database
+
+    GET /program/<program_id>/
+        params: -
+        return: The data of the specified referral program
+
+    PUT /program/<program_id>/  (Update record)
+        params:
+            - name
+            - credit_value
+            - target_value
+        return: The data of the new record updated
+
+    DELETE /program/<program_id>/  (Delete record)
+        params: -
+        return: -
+
 
 Quando um usuario indicado faz singup no site, o django regista ambos:
 
