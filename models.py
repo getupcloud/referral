@@ -15,7 +15,7 @@ class ReferralProgram(Document):
 class User(Document):
     hash = StringField(required=True, primary_key=True)
     referral_program = ReferenceField(ReferralProgram, required=True)
-    user_indicator = ReferenceField("User",required=True)
+    user_indicator = ReferenceField("User",required=False)
     #flag_que_gera_credito_ainda (para ser desliga depois que gerar o primeiro crédito ao seu indicador)
     is_generates_even = BooleanField(default=True)
     

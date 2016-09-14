@@ -6,6 +6,7 @@ To development run:
     $ export FLASK_DEBUG=1
     $ flask run
 """
+from functools import reduce
 from utils import *
 import configuration as config
 from flask import request, url_for, abort
@@ -24,6 +25,14 @@ from models import (
 app = FlaskAPI(__name__)
 
 app.config.from_object('configuration')
+
+#=========== Operation Types - For TransactionLog
+O_INDICATION = "indication"
+O_SIGNUP = "signup"
+O_SIGNUP_CREDIT = "signup_credit"  # -> Credito que o usuário INDICADO recebe quando faz signup
+O_POTENCIAL_CREDIT = "potencial_credit"  # -> Credito que o usuário INDICADOR tem a receber (gerado no signup do seu indicado)
+O_ACQUIRED_CREDIT = "acquired_credit"  # -> Credito que o usuário INDICADOR recebeu e já está no saldo efetivo.
+#===========
 
 @app.route("/", methods=("GET",))
 def index():
@@ -121,7 +130,7 @@ def register():
     log1.user_indicated = new_user
     log1.user_indicator = the_indicator
     log1.user_indicated_referral_program = referral_program
-    log1.operation = "signup"
+    log1.operation = O_SIGNUP
     log1.save()
 
     #Vai chamar o endpoint de criação de crédito para o usuário indicado (/django/billing/credit/users/<userhash_indicado>/?
@@ -137,7 +146,7 @@ def register():
     log2.user_indicated = new_user
     log2.user_indicated_referral_program = referral_program
     log2.amount = referral_program.credit_value
-    log2.operation = "signup_credit"
+    log2.operation = O_SIGNUP_CREDIT
     log2.save()
 
     #Register the Transaction log
@@ -145,7 +154,7 @@ def register():
     log3.user_indicator = the_indicator
     log3.user_indicated_referral_program = referral_program
     log3.amount = referral_program.target_value
-    log3.operation = "potencial_credit"
+    log3.operation = O_POTENCIAL_CREDIT
     log3.save()
 
     return to_dict(new_user), status.HTTP_201_CREATED
@@ -162,14 +171,14 @@ def invoice_user(user_hash):
         log.user_indicated = user
         log.amount = referral_program.target_value
         log.user_indicated_referral_program = referral_program
-        log.operation = "acquired_credit"
+        log.operation = O_ACQUIRED_CREDIT
         log.save()
 
         #Chama o endpoint de criação de crédito
         data = {
-        'amount': referral_program.target_value,
-        'program_name': referral_program.name,
-        'user_indicator_hash': user_hash
+            'amount': referral_program.target_value,
+            'program_name': referral_program.name,
+            'user_indicator_hash': user_hash
         }
         r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_hash , data)
 
@@ -181,7 +190,36 @@ def invoice_user(user_hash):
 @app.route("/statement/<user_hash>/", methods=("GET",))
 def statement(user_hash):
     user = User.objects(hash=user_hash).first()
+    credits = TransactionLog.objects(
+        user_indicator=user, operation=O_POTENCIAL_CREDIT)
+    total_potencial_credit = reduce(lambda x,y: x + y.amount, credits)
     user_statement = {
-        'potencial_credit': ''
+        'potencial_credit': total_potencial_credit,
         'referral_program': to_dict(user.referral_program)
     }
+    return user_statement
+
+
+@app.route("/emailindication", methods=("POST",))
+def emailindication():
+    user_indicator = request.data.get("user_indicator")
+    emails = request.data.get("emails")
+
+    for email in emails.split(","):
+        indic = IndicatedEmail()
+        indic.email = email
+        indic.user_indicator = user_indicator
+        indic.save()
+
+    return {}, status.HTTP_201_CREATED
+
+@app.route("/emailverification", methods("POST",))
+def emailverification():
+    emails = request.data.get("emails")
+
+    verification = []
+    for email in emails.split(","):
+        ver = IndicatedEmail.objects(email=email)
+        verification.append((email,bool(ver)))
+
+    return {'emails':verification}

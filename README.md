@@ -28,8 +28,6 @@ following commands:
 
 # API
 
-Criar programa de referral. Inicialmente teremos apenas um (default) que vamos criar "na mao"
-
     POST /program/
         params:
             - name: name of the new referral program
@@ -56,40 +54,42 @@ Criar programa de referral. Inicialmente teremos apenas um (default) que vamos c
         params: -
         return: -
 
-
-Quando um usuario indicado faz singup no site, o django regista ambos:
-
     POST /register/
-        userhash_indicado: user.user_hash do novo usuario quer fez signup (indicado)
-        userhash_indicador: user.user_hash do usuario que indicou o novo cliente (indicador)
-
-
-   Ao final do registro o sistema de referral cria um credito no django para o usuario indicado
-
-    POST //django/credit/users/<userhash_indicado>/
-        programa: $programa.name
-        amount: $programa.valor_credito
-        indicador: userhash_indicador
-
-
-Apos a fatura ser paga, o django informa quanto que o usuario indicado ja consumiu.
-Este valor é a soma dos valores de todas as faturas *pagas* pelo cliente.
-
-Quando o total bater no `valor_target`, o usuario indicador recebe o mesmo `valor_target` em credito.
-
-    PUT /invoice/users/<userhash_indicado>/
         params:
-            - total_amount_paid: Total paid by the user in billing app
-        return: The total acquired credit for the user
+            - user_indicator: user.user_hash do novo usuario quer fez signup (indicado)
+            - user_indicated: user.user_hash do usuario que indicou o novo cliente (indicador)
+        return: The data of the new saved user
+
+    GET /statement/<userhash>/
+        params:
+            - user_hash
+        return:
+            - {potencial_credit, referral_program: {}}
+
+    POST /emailindication
+        parameters:
+            - user_indicator 
+            - emails -> List of emails, spareted by comma
+        return: Code 201 - Saved, with no data
+
+    POST /emailverification
+        params:
+            - emails -> List of emails, spareted by comma
+        return:
+            - List of tuples ('emailverified@domain.com' , True/False)
 
 
+# Billing route
 
-O usuario consulta o extrato com as informacoes completas do seu programa
+    Method of the billing application that receives the new credit value of the user.
 
-    GET //django/billing/credits/statement/
-        credito_adquirido: credito para ser usado na proxima (atual) fatura
+    Configured on the `ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP` environment variable.
+    
+    Http method: POST
+    
+    Parameters sent:
+        - amount: referral_program.target_value,
+        - program_name: referral_program.name,
+        - user_indicator_hash: user_hash
 
-        GET /statement/<userhash>/
-            OUT credito_potencial: $$ que o indicado possui potencialmente para receber de seus indicados
-            OUT programa: nome do programa
 
