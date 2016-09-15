@@ -7,8 +7,12 @@ To development run:
     $ flask run
 """
 from functools import reduce
+from decimal import Decimal
+import logging
+
 from utils import *
 import configuration as config
+
 from flask import request, url_for, abort
 from flask.ext.api import (
     FlaskAPI, 
@@ -26,6 +30,12 @@ app = FlaskAPI(__name__)
 
 app.config.from_object('configuration')
 
+handler = logging.StreamHandler()
+handler.setLevel(logging.DEBUG)
+formatter = logging.Formatter( "[%(asctime)s] {%(pathname)s:%(lineno)d} | %(funcName)s | %(levelname)s - %(message)s")
+handler.setFormatter(formatter)
+app.logger.addHandler(handler)
+
 #=========== Operation Types - For TransactionLog
 O_INDICATION = "indication"
 O_SIGNUP = "signup"
@@ -41,8 +51,8 @@ def index():
         'endpoints': list_routes(app)
     }
 
-@app.route("/program/", methods=("GET","POST"))
-@app.route("/program/<program_id>/", methods=("GET","PUT","DELETE"))
+@app.route("/program", methods=("GET","POST"))
+@app.route("/program/<program_id>", methods=("GET","PUT","DELETE"))
 def program(program_id=None):
     if request.method == "POST":
         rp = ReferralProgram()
@@ -103,11 +113,11 @@ def register():
     user_indicator_hash = request.data.get("user_indicator",'')
     user_indicated_hash = request.data.get("user_indicated",'')
 
-    if not user_indicated or not user_indicator:
+    if not user_indicated_hash or not user_indicator_hash:
         return ({'error': 'Needed user_indicator and user_indicated hashes'}, 
             status.HTTP_412_PRECONDITION_FAILED)
 
-    the_indicator = User.object(hash=user_indicator_hash).first()
+    the_indicator = User.objects(hash=user_indicator_hash).first()
 
     if not the_indicator:
         return {'error': 'User indicator hash not found'}, status.HTTP_404_NOT_FOUND
@@ -133,13 +143,18 @@ def register():
     log1.operation = O_SIGNUP
     log1.save()
 
-    #Vai chamar o endpoint de criação de crédito para o usuário indicado (/django/billing/credit/users/<userhash_indicado>/?
-    data = {
-    'amount': referral_program.credit_value,
-    'program_name': referral_program.name,
-    'user_indicator_hash': user_indicator_hash
-    }
-    r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_indicated_hash , data)
+    try:
+        #Vai chamar o endpoint de criação de crédito para o usuário indicado (/django/billing/credit/users/<userhash_indicado>/?
+        data = {
+            'amount': referral_program.credit_value,
+            'program_name': referral_program.name,
+            'user_indicator_hash': user_indicator_hash
+        }
+        r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_indicated_hash , data)
+    except Exception as e:
+        app.logger.error("Error on calling billing endpoint:")
+        app.logger.error(data)
+        app.logger.error(e)
     
     #Register the Transaction log
     log2 = TransactionLog()
@@ -159,14 +174,14 @@ def register():
 
     return to_dict(new_user), status.HTTP_201_CREATED
 
-@app.route("/invoice/user/<user_hash>/", methods=("PUT",))
+@app.route("/invoice/user/<user_hash>", methods=("PUT",))
 def invoice_user(user_hash):
     total_amount_paid = request.data.get("total_amount_paid",0)
 
     user = User.objects(hash=user_hash).first()
     referral_program = user.referral_program
 
-    if total_amount_paid >= referral_program.target_value:
+    if Decimal(total_amount_paid) >= referral_program.target_value:
         log = TransactionLog()
         log.user_indicated = user
         log.amount = referral_program.target_value
@@ -174,20 +189,25 @@ def invoice_user(user_hash):
         log.operation = O_ACQUIRED_CREDIT
         log.save()
 
-        #Chama o endpoint de criação de crédito
-        data = {
-            'amount': referral_program.target_value,
-            'program_name': referral_program.name,
-            'user_indicator_hash': user_hash
-        }
-        r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_hash , data)
+        try:
+            #Chama o endpoint de criação de crédito
+            data = {
+                'amount': referral_program.target_value,
+                'program_name': referral_program.name,
+                'user_indicator_hash': user_hash
+            }
+            r = requests.post(config.ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP % user_hash , data)
+        except Exception as e:
+            app.logger.error("Error on calling billing endpoint")
+            app.logger.error(data)
+            app.logger.error(e)
 
-        return {'acquired_credit':referral_program.target_value}
+        return {'acquired_credit':float(referral_program.target_value)}
 
     return {'acquired_credit':0}
 
 
-@app.route("/statement/<user_hash>/", methods=("GET",))
+@app.route("/statement/<user_hash>", methods=("GET",))
 def statement(user_hash):
     user = User.objects(hash=user_hash).first()
     credits = TransactionLog.objects(
@@ -202,24 +222,41 @@ def statement(user_hash):
 
 @app.route("/emailindication", methods=("POST",))
 def emailindication():
+
+
     user_indicator = request.data.get("user_indicator")
+    if not user_indicator:
+        return ({'error': 'Need user_indicator parameter'}, 
+            status.HTTP_412_PRECONDITION_FAILED)
+
+    indicator = User.objects(hash=user_indicator).first()
+
+    if not indicator:
+        return ({'error': 'User indicator not found'}, 
+            status.HTTP_412_PRECONDITION_FAILED)
+
     emails = request.data.get("emails")
 
+    saved_emails = []
     for email in emails.split(","):
         indic = IndicatedEmail()
         indic.email = email
-        indic.user_indicator = user_indicator
-        indic.save()
+        indic.user_indicator = indicator
+        try:
+            indic.save()
+            saved_emails.append(email)
+        except Exception as e:
+            app.logger.warning("Email '%s' already indicated by other user", email)
 
-    return {}, status.HTTP_201_CREATED
+    return {'saved_emails': saved_emails}, status.HTTP_201_CREATED
 
-@app.route("/emailverification", methods("POST",))
+@app.route("/emailverification", methods=("POST",))
 def emailverification():
     emails = request.data.get("emails")
 
-    verification = []
+    verification = {}
     for email in emails.split(","):
-        ver = IndicatedEmail.objects(email=email)
-        verification.append((email,bool(ver)))
+        ver = IndicatedEmail.objects(email=email).first()
+        verification[email] = ver.user_indicator.hash if bool(ver) else False
 
     return {'emails':verification}

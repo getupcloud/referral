@@ -21,7 +21,7 @@ class User(Document):
     
 
 class IndicatedEmail(Document):
-    email = StringField(required=True)
+    email = StringField(required=True, unique=True)
     user_indicator = ReferenceField(User, required=True)
     datetime = DateTimeField(default=datetime.datetime.now)
 

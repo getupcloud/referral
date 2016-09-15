@@ -60,6 +60,13 @@ following commands:
             - user_indicated: user.user_hash do usuario que indicou o novo cliente (indicador)
         return: The data of the new saved user
 
+    PUT /invoice/user/<user_hash>/
+        params:
+            - user_hash
+            - total_amount_paid - 
+        return:
+            { acquired_credit: 999 }
+
     GET /statement/<userhash>/
         params:
             - user_hash
@@ -70,13 +77,13 @@ following commands:
         parameters:
             - user_indicator 
             - emails -> List of emails, spareted by comma
-        return: Code 201 - Saved, with no data
+        return: Code 201 - Saved, with saved emails list
 
     POST /emailverification
         params:
             - emails -> List of emails, spareted by comma
         return:
-            - List of tuples ('emailverified@domain.com' , True/False)
+            - List of information {'<email_verified>':'<user_indicator>'}
 
 
 # Billing route
