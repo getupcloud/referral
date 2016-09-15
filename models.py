@@ -1,10 +1,12 @@
 import datetime
 from mongoengine import *
 from configuration import (
-    DATABASE_NAME, DATABASE_HOST, DATABASE_PORT
+    DATABASE_NAME, DATABASE_HOST, DATABASE_PORT, 
+    DATABASE_USER, DATABASE_PASSWORD
 )
 
-connect(DATABASE_NAME, host=DATABASE_HOST, port=DATABASE_PORT)
+connect(DATABASE_NAME, host=DATABASE_HOST, port=DATABASE_PORT,
+    username=DATABASE_USER, password=DATABASE_PASSWORD)
 
 class ReferralProgram(Document):
     name = StringField()
