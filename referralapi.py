@@ -177,8 +177,6 @@ def register():
         # app.logger.error(e)
     
     #Register the Transaction log
-    import pdb
-    pdb.set_trace()
     log2 = TransactionLog()
     log2.user_indicated = new_user
     log2.user_indicated_referral_program = referral_program

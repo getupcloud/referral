@@ -8,10 +8,10 @@ The configuration of the application is in the file `configuration.py`
 
 Options:
 
-- DATABASE_NAME: Name of mongodb database
-- DATABASE_HOST: Host name or IP address of the mongodb server
-- DATABASE_PORT: Port of the mongodb database listen
+- DATABASE_URL = Complete database url, like: `mysql://user:password@localhost:3306/referral`
 - ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP: Url that the endpoint /signup will invoke
+
+**Obs:** All configuration variables must be set with environment variables
 
 # Development install
 
