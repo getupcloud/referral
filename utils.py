@@ -1,20 +1,29 @@
 from urllib.parse import unquote
-from mongoengine.fields import ObjectId
-from models import ReferralProgram
 from flask import request, url_for
+from playhouse.shortcuts import model_to_dict, dict_to_model
+from decimal import Decimal
 
 def to_dict(obj):
     """
     Helper method that returns a mongoengine document in python dict format
     """
+    from models import ReferralProgram
+    
     def treat_data(value):
-        if isinstance(value,ObjectId):
-            return str(value)
+        if isinstance(value,Decimal):
+            return float(value)
+        elif isinstance(value, dict):
+            value_data = {k:treat_data(value[k]) for k in value}
+            return value_data
         else:
             return value
-    data = {k:treat_data(v) for k,v in obj.to_mongo().items()}
-    if isinstance(obj,ReferralProgram):
+    
+    model_dict = model_to_dict(obj)
+    data = {k:treat_data(model_dict[k]) for k in model_dict}
+    
+    if isinstance(obj, ReferralProgram):
         data['link'] = request.host_url.rstrip('/') + url_for('program', program_id=str(obj.id))
+    
     return data
 
 

@@ -1,11 +1,13 @@
+from referralapi import app
+from database import configure_database
+configure_database(app)
+
 from models import User, ReferralProgram
 
 file = open('../users.txt','r')
 
-rp = ReferralProgram.objects().first()
+rp = ReferralProgram.select().first()
 
-import pdb
-pdb.set_trace()
 for line in file.readlines():
     dados = [x.strip() for x in line.split("|") if x.strip()]
     print("Saving {0} {1}".format(*dados))

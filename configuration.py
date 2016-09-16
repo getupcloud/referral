@@ -2,10 +2,9 @@ import os
 
 VERSION = 0.1
 
-DATABASE_NAME = os.getenv("MONGODB_DATABASE", "referral")
-DATABASE_HOST = os.getenv("MONGODB_HOST", "localhost")
-DATABASE_PORT = os.getenv("MONGODB_PORT", 27017)
-DATABASE_USER = os.getenv("MONGODB_USER", "")
-DATABASE_PASSWORD = os.getenv("MONGODB_PASSWORD", "")
+#Bash command
+#export DATABASE_URL="mysql://root:root@localhost:3306/referral"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP = os.getenv("ENDPOINT_BILLING_CREDIT","")
+
+ENDPOINT_CALLBACK_CREDIT_ON_SIGNUP = os.getenv("ENDPOINT_BILLING_CREDIT","http://without.configured.url/%s")

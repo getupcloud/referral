@@ -1,34 +1,30 @@
-import datetime
-from mongoengine import *
-from configuration import (
-    DATABASE_NAME, DATABASE_HOST, DATABASE_PORT, 
-    DATABASE_USER, DATABASE_PASSWORD
-)
+import datetime 
 
-connect(DATABASE_NAME, host=DATABASE_HOST, port=DATABASE_PORT,
-    username=DATABASE_USER, password=DATABASE_PASSWORD)
+from peewee import *
 
-class ReferralProgram(Document):
-    name = StringField()
-    credit_value = DecimalField(precision=2)  #(credito que o indicado recebe no ato do signup)
-    target_value = DecimalField(precision=2)  #(credito que o indicador recebe quando o indicado alcançar valor_target de pagto)
+from database import flask_db
 
 
-class User(Document):
-    hash = StringField(required=True, primary_key=True)
-    referral_program = ReferenceField(ReferralProgram, required=True)
-    user_indicator = ReferenceField("User",required=False)
-    #flag_que_gera_credito_ainda (para ser desliga depois que gerar o primeiro crédito ao seu indicador)
+class ReferralProgram(flask_db.Model):
+    name = CharField()
+    credit_value = DecimalField(decimal_places=2)
+    target_value = DecimalField(decimal_places=2)
+
+
+class User(flask_db.Model):
+    hash = CharField(unique = True)
+    referral_program = ForeignKeyField(ReferralProgram, related_name='users')
+    user_indicator = ForeignKeyField("self", null=True, related_name="indications")
     is_generates_even = BooleanField(default=True)
-    
 
-class IndicatedEmail(Document):
-    email = StringField(required=True, unique=True)
-    user_indicator = ReferenceField(User, required=True)
+
+class IndicatedEmail(flask_db.Model):
+    email = CharField(unique=True)
+    user_indicator = ForeignKeyField(User, related_name="email_indications")
     datetime = DateTimeField(default=datetime.datetime.now)
 
 
-class TransactionLog(Document):
+class TransactionLog(flask_db.Model):
     OPERATION_TYPES = [
         "indication",
         "signup",
@@ -36,9 +32,9 @@ class TransactionLog(Document):
         "potencial_credit",  # -> Credito que o usuário INDICADOR tem a receber (gerado no signup do seu indicado)
         "acquired_credit"  # -> Credito que o usuário INDICADOR recebeu e já está no saldo efetivo.
     ]
-    user_indicated = ReferenceField(User)
-    user_indicator = ReferenceField(User)
-    amount = DecimalField(precision=2)
-    user_indicated_referral_program = ReferenceField(ReferralProgram) 
-    operation = StringField(choices=OPERATION_TYPES,required=True)
-
+    user_indicated = ForeignKeyField(User, null=True, related_name="indicated_logs")
+    user_indicator = ForeignKeyField(User, null=True, related_name="indicator_logs")
+    amount = DecimalField(decimal_places=2, default=0, null=True)
+    user_indicated_referral_program = ForeignKeyField(ReferralProgram,
+        related_name="logs")
+    operation = CharField(choices=OPERATION_TYPES)
