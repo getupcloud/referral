@@ -24,6 +24,9 @@ if __name__ == '__main__':
     """
     This main is for running with a following command:
     $ python -m database
+
+    # Verificar http://docs.peewee-orm.com/en/latest/peewee/playhouse.html#migrate
+    # para criar um sistema de migração
     """
     print("Creating the database tables...")
     from referralapi import app

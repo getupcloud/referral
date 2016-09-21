@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+
+#Command to create/migrate tables in configured database
+python -m database
